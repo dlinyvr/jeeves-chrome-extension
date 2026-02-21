@@ -18,19 +18,24 @@ A Chrome extension built as a personal dev assistant. Lives in the browser toolb
 
 **Timer** — Simple countdown/stopwatch.
 
-**Files** — Quick access to local file references.
+**Files** — Quickly create files with any extension.
 
 ---
 
 ## Setup
 
-1. Clone the repo
-2. Go to `chrome://extensions`, enable **Developer mode**
-3. Click **Load unpacked** and select the repo folder
-4. Open the extension and go to **Settings** to add your API keys:
-   - OpenAI key (for Linear ticket generation and Chat)
-   - Linear API key (for ticket creation)
-5. In Linear settings, click **Test connection** to fetch and cache your teams
+This extension is sideloaded directly from the source code — it's not listed on the Chrome Web Store. That means you install it manually in developer mode, which takes about 30 seconds.
+
+1. Clone or download this repo
+2. Open Chrome and go to `chrome://extensions`
+3. Toggle on **Developer mode** (top-right corner)
+4. Click **Load unpacked** and select the repo folder
+5. The extension will appear in your toolbar — pin it for easy access
+
+**API keys (optional):**
+- Open the extension and go to the **Settings** tab
+- Add an OpenAI key to use the Chat tab and Linear ticket generation
+- Add a Linear API key, then click **Test connection** to fetch your teams
 
 ---
 
