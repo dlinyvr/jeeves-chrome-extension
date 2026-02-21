@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pinned</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 4px solid red;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #1c1b18;
+      transition: background 220ms ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* JS adds .faded on mouseover so opacity on children isn't nuked */
+    body.faded {
+      background: rgba(28, 27, 24, 0.08);
+    }
+
+    .pin-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 13px;
+      height: 100%;
+      cursor: default;
+    }
+
+    .pin-icon {
+      font-size: 12px;
+      flex-shrink: 0;
+      opacity: 0.5;
+      user-select: none;
+    }
+
+    .pin-text {
+      flex: 1;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #F0EDE6;
+      line-height: 1.38;
+      word-break: break-word;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    .pin-text a {
+      color: #7dd3a8;
+      text-decoration: none;
+    }
+
+    .pin-close {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.14);
+      border: none;
+      border-radius: 50%;
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 100ms, background 100ms;
+      align-self: flex-start;
+      margin-top: 1px;
+    }
+
+    /* Show close button only when not faded */
+    body:not(.faded) .pin-wrap:hover .pin-close { opacity: 1; }
+    .pin-close:hover { background: rgba(255,255,255,0.28); color: white; }
+  </style>
+</head>
+<body>
+  <div class="pin-wrap" id="pinWrap">
+    <span class="pin-icon">📌</span>
+    <div class="pin-text" id="pinText"></div>
+    <button class="pin-close" id="pinClose">×</button>
+  </div>
+  <script src="pinned.js"></script>
+</body>
+</html>
