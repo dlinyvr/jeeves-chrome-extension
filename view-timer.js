@@ -214,20 +214,25 @@ function _syncButtons() {
 
 // ── World clocks ──────────────────────────────────────────────────────────────
 
-let _clockInterval = null;
-let _acHighlight   = -1; // autocomplete keyboard index
+let _clockInterval    = null;
+let _acHighlight      = -1;   // autocomplete keyboard index
+let _clockOffset      = 0;    // ms offset applied to all clock displays
+let _editingClockIdx  = null; // index of clock currently being edited
+
+function _nowForClocks() {
+  return new Date(Date.now() + _clockOffset);
+}
 
 function _flag(cc) {
   return [...cc.toUpperCase()].map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('');
 }
 
 function _clockTime(tz) {
-  const now = new Date();
+  const now = _nowForClocks();
   const timeStr = now.toLocaleTimeString('en-US', {
     timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true,
   });
-  // Day offset relative to local date
-  const localDate  = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  const localDate  = now.toLocaleDateString('en-CA');
   const remoteDate = now.toLocaleDateString('en-CA', { timeZone: tz });
   const diff = (new Date(remoteDate) - new Date(localDate)) / 86400000;
   const dayTag = diff === 0 ? '' : diff > 0 ? `<span class="clock-day-tag">+${diff}d</span>` : `<span class="clock-day-tag neg">${diff}d</span>`;
@@ -248,8 +253,14 @@ function _utcOffset(tz) {
 }
 
 function _renderClocks() {
+  if (_editingClockIdx !== null) return; // don't disrupt active edit
+
   const list   = document.getElementById('clockList');
   const clocks = state.data.worldClocks;
+
+  // Show/hide reset button
+  const resetBtn = document.getElementById('clockResetBtn');
+  if (resetBtn) resetBtn.style.display = _clockOffset !== 0 ? 'flex' : 'none';
 
   if (!clocks.length) {
     list.innerHTML = `<div class="clock-empty">No clocks added yet</div>`;
@@ -268,7 +279,7 @@ function _renderClocks() {
         </div>
       </div>
       <div class="clock-card-right">
-        <div class="clock-time">${esc(timeStr)}${dayTag}</div>
+        <div class="clock-time clock-time-editable" data-index="${i}" title="Click to set time">${esc(timeStr)}${dayTag}</div>
         <button class="clock-remove-btn" data-index="${i}" title="Remove">×</button>
       </div>
     </div>`;
@@ -282,10 +293,126 @@ function _renderClocks() {
     });
   });
 
+  list.querySelectorAll('.clock-time-editable').forEach((el) => {
+    el.addEventListener('click', () => _startEditClock(Number(el.dataset.index)));
+  });
+
   // Refresh every 10s
   clearInterval(_clockInterval);
   _clockInterval = setInterval(_renderClocks, 10000);
 }
+
+function _startEditClock(index) {
+  _editingClockIdx = index;
+  const c = state.data.worldClocks[index];
+  const { timeStr } = _clockTime(c.tz);
+
+  const el = document.querySelector(`.clock-time-editable[data-index="${index}"]`);
+  if (!el) return;
+
+  const input = document.createElement('input');
+  input.className = 'clock-time-input';
+  input.value = timeStr;
+  input.title = 'e.g. 9pm · 9:30 AM · 14:30';
+  el.replaceWith(input);
+  input.select();
+  input.focus();
+
+  let committed = false;
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      committed = true;
+      _applyClockEdit(index, c.tz, input.value);
+    } else if (e.key === 'Escape') {
+      committed = true;
+      _editingClockIdx = null;
+      _renderClocks();
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (!committed) {
+        _editingClockIdx = null;
+        _renderClocks();
+      }
+    }, 120);
+  });
+}
+
+function _applyClockEdit(index, tz, inputStr) {
+  const parsed = _parseTimeInput(inputStr.trim());
+  if (!parsed) {
+    showToast('Try "9pm", "9:30 AM", or "14:30"');
+    _editingClockIdx = null;
+    _renderClocks();
+    return;
+  }
+  const targetUtc = _timeInTzToUtc(parsed.h, parsed.m, tz);
+  _clockOffset = targetUtc - Date.now();
+  _editingClockIdx = null;
+  _renderClocks();
+}
+
+function _parseTimeInput(str) {
+  str = str.toLowerCase().replace(/\s+/g, '');
+  let h, m;
+
+  const withMinAmPm = str.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
+  if (withMinAmPm) {
+    h = parseInt(withMinAmPm[1]); m = parseInt(withMinAmPm[2]);
+    if (withMinAmPm[3] === 'pm' && h < 12) h += 12;
+    if (withMinAmPm[3] === 'am' && h === 12) h = 0;
+    return { h, m };
+  }
+
+  const hourAmPm = str.match(/^(\d{1,2})(am|pm)$/);
+  if (hourAmPm) {
+    h = parseInt(hourAmPm[1]); m = 0;
+    if (hourAmPm[2] === 'pm' && h < 12) h += 12;
+    if (hourAmPm[2] === 'am' && h === 12) h = 0;
+    return { h, m };
+  }
+
+  const withMin = str.match(/^(\d{1,2}):(\d{2})$/);
+  if (withMin) {
+    h = parseInt(withMin[1]); m = parseInt(withMin[2]);
+    return { h, m };
+  }
+
+  const hourOnly = str.match(/^(\d{1,2})$/);
+  if (hourOnly) {
+    h = parseInt(hourOnly[1]); m = 0;
+    return { h, m };
+  }
+
+  return null;
+}
+
+function _timeInTzToUtc(h, m, tz) {
+  const now = _nowForClocks();
+  const dateStr = now.toLocaleDateString('en-CA', { timeZone: tz });
+  const hh = String(h).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  // Treat desired time as UTC, then subtract the tz offset to get real UTC
+  const fakeUtcMs = new Date(`${dateStr}T${hh}:${mm}:00Z`).getTime();
+  const tzOffsetMs = _getTzOffsetMs(new Date(fakeUtcMs), tz);
+  return fakeUtcMs - tzOffsetMs;
+}
+
+function _getTzOffsetMs(date, tz) {
+  // Returns (tz local time) - (UTC) in ms
+  const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });
+  const tzStr  = date.toLocaleString('en-US', { timeZone: tz });
+  return new Date(tzStr) - new Date(utcStr);
+}
+
+document.getElementById('clockResetBtn').addEventListener('click', () => {
+  _clockOffset = 0;
+  _renderClocks();
+});
 
 // ── Autocomplete ──────────────────────────────────────────────────────────────
 

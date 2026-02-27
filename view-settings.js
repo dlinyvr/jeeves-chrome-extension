@@ -194,23 +194,40 @@ async function _checkGql(res) {
   return json.data;
 }
 
+// ── Profile email ─────────────────────────────────────────────────────────────
+
+let _profileEmail = '';
+
+(function _loadProfileEmail() {
+  if (!chrome?.identity?.getProfileUserInfo) return;
+  chrome.identity.getProfileUserInfo({ accountStatus: 'ANY' }, (info) => {
+    if (!info?.email) return;
+    _profileEmail = info.email;
+    const el = document.getElementById('profileEmail');
+    if (el) el.textContent = info.email;
+  });
+})();
+
 // ── Export / Import ───────────────────────────────────────────────────────────
 
 document.getElementById('btnExport').addEventListener('click', () => {
   const payload = {
     folders:       state.data.folders,
     looseSnippets: state.data.looseSnippets,
+    todos:         state.data.todos,
+    worldClocks:   state.data.worldClocks,
     settings:      state.data.settings,
     exportedAt:    new Date().toISOString(),
     version:       2,
   };
-  const json = JSON.stringify(payload, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const date = new Date().toISOString().slice(0, 10);
-  a.href     = url;
-  a.download = `snippet-box-${date}.json`;
+  const json     = JSON.stringify(payload, null, 2);
+  const blob     = new Blob([json], { type: 'application/json' });
+  const url      = URL.createObjectURL(blob);
+  const a        = document.createElement('a');
+  const date     = new Date().toISOString().slice(0, 10);
+  const prefix   = _profileEmail ? _profileEmail.split('@')[0] + '-' : '';
+  a.href         = url;
+  a.download     = `${prefix}snippet-box-${date}.json`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Exported — load this file in your other profile');

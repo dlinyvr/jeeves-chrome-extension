@@ -75,6 +75,8 @@ const state = {
     activeForm:      null,
     showAddFolder:   false,
     showAddLoose:    false,
+    showSaveTabs:    false,
+    showLoadTabs:    false,
   },
 };
 
@@ -105,9 +107,17 @@ const ui = {
 async function loadData() {
   return new Promise((resolve) => {
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.sync.get(STORAGE_KEY, (result) => {
-        if (result[STORAGE_KEY]) _mergeData(result[STORAGE_KEY]);
-        resolve();
+      chrome.storage.local.get(STORAGE_KEY, (result) => {
+        if (result[STORAGE_KEY]) {
+          _mergeData(result[STORAGE_KEY]);
+          resolve();
+        } else {
+          // One-time migration: pull from sync if local is empty
+          chrome.storage.sync.get(STORAGE_KEY, (syncResult) => {
+            if (syncResult[STORAGE_KEY]) _mergeData(syncResult[STORAGE_KEY]);
+            resolve();
+          });
+        }
       });
     } else {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -137,7 +147,13 @@ async function saveData() {
       linearCache:   state.data.linearCache,
     };
     if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.sync.set({ [STORAGE_KEY]: payload }, resolve);
+      chrome.storage.local.set({ [STORAGE_KEY]: payload }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Save failed:', chrome.runtime.lastError);
+          showToast('Save failed — storage full');
+        }
+        resolve();
+      });
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       resolve();
@@ -371,8 +387,8 @@ function togglePin(taskId) {
   if (idx >= 0) {
     pinned.splice(idx, 1);
   } else {
-    if (pinned.length >= 4) {
-      showToast('Max 4 pinned — unpin one first');
+    if (pinned.length >= 5) {
+      showToast('Max 5 pinned — unpin one first');
       return;
     }
     pinned.push(taskId);

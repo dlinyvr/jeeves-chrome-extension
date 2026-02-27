@@ -3,7 +3,7 @@
   "name": "Snippet Box",
   "version": "1.0.0",
   "description": "Save and instantly copy text snippets, organized in folders.",
-  "permissions": ["storage", "clipboardWrite", "downloads", "windows"],
+  "permissions": ["storage", "clipboardWrite", "downloads", "windows", "tabs", "identity"],
   "host_permissions": [
     "https://api.openai.com/*",
     "https://api.linear.app/*",

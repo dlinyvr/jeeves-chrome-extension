@@ -24,7 +24,7 @@
 }
 
 body {
-  width: 380px;
+  width: 420px;
   background: var(--bg);
   font-family: var(--font);
   font-size: 13px;
@@ -1401,6 +1401,44 @@ body {
   color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.07em;
+  flex: 1;
+}
+
+.clock-reset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 100ms;
+}
+.clock-reset-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+.clock-time-editable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 5px;
+  transition: background 100ms;
+}
+.clock-time-editable:hover { background: var(--border-light); }
+
+.clock-time-input {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 5px;
+  padding: 2px 6px;
+  width: 90px;
+  outline: none;
+  text-align: right;
 }
 
 .timer-clock-add {
@@ -1583,6 +1621,43 @@ body {
 .todo-input:focus { border-color: var(--accent); }
 .todo-input::placeholder { color: var(--text-faint); }
 
+.todo-focus-mode-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-2);
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.todo-focus-mode-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.todo-focus-mode-btn.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.todo-focus-mark {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 120ms, color 120ms, background 120ms;
+  padding: 0;
+}
+.todo-item:hover .todo-focus-mark { opacity: 1; }
+.todo-focus-mark:hover { color: var(--accent); background: var(--accent-light); }
+.todo-focus-mark.is-focused { opacity: 1; color: var(--accent); }
+
 .todo-add-btn {
   width: 32px;
   height: 32px;
@@ -1610,7 +1685,8 @@ body {
 
 .todo-item {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--border-light);
@@ -1618,6 +1694,13 @@ body {
 }
 .todo-item:last-child { border-bottom: none; }
 .todo-item:hover { background: var(--bg); }
+.todo-item.is-expanded { background: var(--bg); }
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 .todo-check {
   width: 18px;
@@ -1651,6 +1734,19 @@ body {
   word-break: break-word;
   cursor: default;
 }
+
+.todo-rename-input {
+  flex: 1;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  outline: none;
+  min-width: 0;
+}
 .todo-item.done .todo-text {
   color: var(--text-faint);
   text-decoration: line-through;
@@ -1670,7 +1766,7 @@ body {
   text-decoration: line-through;
 }
 
-.todo-pin-btn {
+.todo-expand-btn {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
@@ -1682,11 +1778,104 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 100ms, color 100ms, background 100ms;
 }
-.todo-item:hover .todo-pin-btn { opacity: 1; }
-.todo-pin-btn:hover { color: var(--accent); background: var(--accent-light); }
+.todo-item:hover .todo-expand-btn { opacity: 1; }
+.todo-expand-btn:hover { color: var(--accent); background: var(--accent-light); }
+.todo-expand-btn.is-open { opacity: 1; color: var(--accent); background: var(--accent-light); }
+.todo-expand-btn.has-context { opacity: 0.6; color: var(--accent); }
+.todo-item:hover .todo-expand-btn.has-context { opacity: 1; }
+
+.todo-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+  padding-left: 28px;
+}
+.todo-detail-notes {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  resize: none;
+  line-height: 1.5;
+  outline: none;
+  min-height: 48px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.todo-detail-notes:focus { border-color: var(--accent); }
+.todo-url-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.todo-url-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.todo-detail-url {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  outline: none;
+}
+.todo-detail-url:focus { border-color: var(--accent); }
+
+.todo-url-remove-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-faint);
+  font-size: 14px;
+  line-height: 1;
+  transition: color 100ms, background 100ms;
+}
+.todo-url-remove-btn:hover { color: var(--danger); background: var(--danger-light); }
+
+.todo-url-add-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 100ms;
+}
+.todo-url-add-btn:hover { opacity: 1; }
+.todo-detail-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
 
 .todo-delete-btn {
   width: 22px;
@@ -1700,7 +1889,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 100ms, color 100ms, background 100ms;
 }
 .todo-item:hover .todo-delete-btn { opacity: 1; }
@@ -1713,7 +1902,7 @@ body {
   border-radius: 5px;
   overflow: hidden;
   flex-shrink: 0;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 100ms;
 }
 .todo-item:hover .todo-reorder-btns { opacity: 1; }

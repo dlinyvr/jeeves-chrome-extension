@@ -13,6 +13,8 @@ const ICON_CHECK = `<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.5 3.5
 function renderSnippets() {
   _renderAddFolderBanner();
   _renderAddLooseBanner();
+  _renderSaveTabsBanner();
+  _renderLoadTabsBanner();
   _renderContent();
 }
 
@@ -474,8 +476,12 @@ document.addEventListener('keydown', (e) => {
 document.getElementById('btnAddFolder').addEventListener('click', () => {
   state.snippets.showAddFolder = !state.snippets.showAddFolder;
   if (state.snippets.showAddFolder) {
-    state.snippets.showAddLoose = false;
+    state.snippets.showAddLoose  = false;
+    state.snippets.showSaveTabs  = false;
+    state.snippets.showLoadTabs  = false;
     _renderAddLooseBanner();
+    _renderSaveTabsBanner();
+    _renderLoadTabsBanner();
   }
   _renderAddFolderBanner();
   if (state.snippets.showAddFolder) {
@@ -488,7 +494,11 @@ document.getElementById('btnAddLoose').addEventListener('click', () => {
   state.snippets.showAddLoose = !state.snippets.showAddLoose;
   if (state.snippets.showAddLoose) {
     state.snippets.showAddFolder = false;
+    state.snippets.showSaveTabs  = false;
+    state.snippets.showLoadTabs  = false;
     _renderAddFolderBanner();
+    _renderSaveTabsBanner();
+    _renderLoadTabsBanner();
   }
   _renderAddLooseBanner();
   if (state.snippets.showAddLoose) {
@@ -556,6 +566,179 @@ document.getElementById('searchClear').addEventListener('click', () => {
   saveUiState();
   document.getElementById('searchClear').style.display = 'none';
   _renderContent();
+});
+
+// ── Save All Tabs ─────────────────────────────────────────────────────────────
+
+function _renderSaveTabsBanner() {
+  const banner = document.getElementById('saveTabsBanner');
+  banner.classList.toggle('visible', state.snippets.showSaveTabs);
+  if (!state.snippets.showSaveTabs) return;
+
+  // Populate folder dropdown
+  const sel = document.getElementById('saveTabsFolder');
+  const sorted = [...state.data.folders].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  sel.innerHTML = sorted.length
+    ? sorted.map((f) => `<option value="${f.id}">${esc(f.name)}</option>`).join('')
+    : `<option value="">— no folders, will save as loose snippet —</option>`;
+
+  // Pre-fill title with today's date
+  const titleEl = document.getElementById('saveTabsTitle');
+  if (!titleEl.value) {
+    const d = new Date();
+    titleEl.value = `Tabs – ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+  titleEl.focus();
+  titleEl.select();
+}
+
+document.getElementById('btnSaveTabs').addEventListener('click', () => {
+  state.snippets.showSaveTabs = !state.snippets.showSaveTabs;
+  if (state.snippets.showSaveTabs) {
+    state.snippets.showAddFolder = false;
+    state.snippets.showAddLoose  = false;
+    state.snippets.showLoadTabs  = false;
+    _renderAddFolderBanner();
+    _renderAddLooseBanner();
+    _renderLoadTabsBanner();
+  }
+  _renderSaveTabsBanner();
+});
+
+document.getElementById('btnCancelSaveTabs').addEventListener('click', () => {
+  state.snippets.showSaveTabs = false;
+  document.getElementById('saveTabsTitle').value = '';
+  _renderSaveTabsBanner();
+});
+
+document.getElementById('btnConfirmSaveTabs').addEventListener('click', async () => {
+  const title = document.getElementById('saveTabsTitle').value.trim();
+  if (!title) { showToast('Enter a title'); return; }
+
+  let tabs;
+  try {
+    tabs = await chrome.tabs.query({ currentWindow: true });
+  } catch {
+    showToast('Could not read tabs');
+    return;
+  }
+
+  const content = tabs
+    .filter((t) => t.url)
+    .map((t) => (t.title ? `${t.title}\n${t.url}` : t.url))
+    .join('\n\n');
+
+  if (!content) { showToast('No tabs found'); return; }
+
+  const folderId = document.getElementById('saveTabsFolder').value;
+  const folder   = state.data.folders.find((f) => f.id === folderId);
+
+  if (folder) {
+    folder.snippets.push({ id: uid(), title, content });
+    state.snippets.expandedFolders.add(folder.id);
+  } else {
+    state.data.looseSnippets.push({ id: uid(), title, content });
+  }
+
+  await saveData();
+  state.snippets.showSaveTabs = false;
+  document.getElementById('saveTabsTitle').value = '';
+  _renderSaveTabsBanner();
+  _renderContent();
+  showToast(`${tabs.length} tabs saved`);
+});
+
+// ── Load Tabs ─────────────────────────────────────────────────────────────────
+
+const URL_RE = /https?:\/\/[^\s"'<>]+/g;
+
+function _tabSnippets() {
+  const results = [];
+  for (const folder of state.data.folders) {
+    for (const s of folder.snippets) {
+      if (s.title.toLowerCase().startsWith('tabs')) results.push({ ...s, _source: folder.name });
+    }
+  }
+  for (const s of state.data.looseSnippets) {
+    if (s.title.toLowerCase().startsWith('tabs')) results.push({ ...s, _source: 'Loose' });
+  }
+  return results;
+}
+
+function _urlsFromContent(content) {
+  return [...new Set(content.match(URL_RE) || [])];
+}
+
+function _renderLoadTabsBanner() {
+  const banner = document.getElementById('loadTabsBanner');
+  banner.classList.toggle('visible', state.snippets.showLoadTabs);
+  if (!state.snippets.showLoadTabs) return;
+
+  const snippets = _tabSnippets();
+  const sel = document.getElementById('loadTabsSnippet');
+
+  if (!snippets.length) {
+    sel.innerHTML = `<option value="">— no "Tabs" snippets found —</option>`;
+    _updateLoadPreview([]);
+    return;
+  }
+
+  sel.innerHTML = snippets
+    .map((s, i) => `<option value="${i}">${esc(s.title)} (${esc(s._source)})</option>`)
+    .join('');
+
+  sel._snippets = snippets;
+  _updateLoadPreview(_urlsFromContent(snippets[0].content));
+}
+
+function _updateLoadPreview(urls) {
+  const el = document.getElementById('loadTabsPreview');
+  el.textContent = urls.length ? `${urls.length} URL${urls.length === 1 ? '' : 's'} found` : 'No URLs found';
+}
+
+document.getElementById('btnLoadTabs').addEventListener('click', () => {
+  state.snippets.showLoadTabs = !state.snippets.showLoadTabs;
+  if (state.snippets.showLoadTabs) {
+    state.snippets.showAddFolder = false;
+    state.snippets.showAddLoose  = false;
+    state.snippets.showSaveTabs  = false;
+    _renderAddFolderBanner();
+    _renderAddLooseBanner();
+    _renderSaveTabsBanner();
+  }
+  _renderLoadTabsBanner();
+});
+
+document.getElementById('loadTabsSnippet').addEventListener('change', (e) => {
+  const sel = e.target;
+  const idx = parseInt(sel.value, 10);
+  const snippets = sel._snippets || [];
+  _updateLoadPreview(isNaN(idx) ? [] : _urlsFromContent(snippets[idx]?.content || ''));
+});
+
+document.getElementById('btnCancelLoadTabs').addEventListener('click', () => {
+  state.snippets.showLoadTabs = false;
+  _renderLoadTabsBanner();
+});
+
+document.getElementById('btnConfirmLoadTabs').addEventListener('click', async () => {
+  const sel = document.getElementById('loadTabsSnippet');
+  const idx = parseInt(sel.value, 10);
+  const snippets = sel._snippets || [];
+  const snippet = snippets[isNaN(idx) ? 0 : idx];
+
+  if (!snippet) { showToast('No snippet selected'); return; }
+
+  const urls = _urlsFromContent(snippet.content);
+  if (!urls.length) { showToast('No URLs found in that snippet'); return; }
+
+  for (const url of urls) {
+    await chrome.tabs.create({ url, active: false });
+  }
+
+  state.snippets.showLoadTabs = false;
+  _renderLoadTabsBanner();
+  showToast(`Opened ${urls.length} tab${urls.length === 1 ? '' : 's'}`);
 });
 
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
