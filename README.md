@@ -1,4 +1,4 @@
-# Jeeves Bot
+# Jeeves Chrome Extension
 
 A Chrome extension built as a personal dev assistant. Lives in the browser toolbar and handles the small recurring tasks that add up — snippets, todos, Linear tickets, port monitoring, timers, and more.
 
@@ -22,6 +22,16 @@ A Chrome extension built as a personal dev assistant. Lives in the browser toolb
 
 ---
 
+## Screenshots
+
+<img src="assets/Snippets.png" width="400">
+
+<img src="assets/todo.png" width="400">
+
+<img src="assets/timer.png" width="400">
+
+---
+
 ## Setup
 
 This extension is sideloaded directly from the source code — it's not listed on the Chrome Web Store. That means you install it manually in developer mode, which takes about 30 seconds.
@@ -41,7 +51,7 @@ This extension is sideloaded directly from the source code — it's not listed o
 
 ## Data & Privacy
 
-All data is stored locally in `chrome.storage.sync` — nothing is sent anywhere except:
+All data is stored locally in `chrome.storage.local` (5MB limit) — nothing is sent anywhere except:
 - OpenAI API (when using Linear ticket generation or Chat)
 - Linear API (when creating tickets)
 - YouTube oEmbed / page HTML (when fetching titles for pasted URLs in To-Do)
