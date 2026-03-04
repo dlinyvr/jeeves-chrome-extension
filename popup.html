@@ -20,9 +20,33 @@
 
     <div class="panel-header">
       <button class="btn-icon-text" id="btnAddFolder">+ Folder</button>
-      <button class="btn-icon-text secondary" id="btnAddLoose">+ Snippet</button>
-      <button class="btn-icon-text secondary" id="btnSaveTabs" title="Save all open tabs as a snippet">⊞ Save Tabs</button>
-      <button class="btn-icon-text secondary" id="btnLoadTabs" title="Open tabs from a saved snippet">↗ Load Tabs</button>
+      <button class="btn-icon-sq secondary" id="btnAddLoose" title="Add loose snippet">
+        <svg viewBox="0 0 16 16" fill="none" width="15" height="15">
+          <path d="M9 2H5a1 1 0 00-1 1v10a1 1 0 001 1h6a1 1 0 001-1V6L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M9 2v4h3" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M8 9v2.5M6.75 10.25h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="btn-icon-sq secondary" id="btnAddGrid" title="Add grid">
+        <svg viewBox="0 0 16 16" fill="none" width="15" height="15">
+          <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M2 6.5h12M2 10.5h12M7 2v12" stroke="currentColor" stroke-width="1.4"/>
+        </svg>
+      </button>
+      <button class="btn-icon-sq secondary" id="btnSaveTabs" title="Save all open tabs as a snippet">
+        <svg viewBox="0 0 16 16" fill="none" width="15" height="15">
+          <rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M8 10.5V7.5M6.5 9l1.5-1.5L9.5 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 4V3M11 4V3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="btn-icon-sq secondary" id="btnLoadTabs" title="Open tabs from a saved snippet">
+        <svg viewBox="0 0 16 16" fill="none" width="15" height="15">
+          <rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M8 7.5v3M6.5 9l1.5 1.5L9.5 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M5 4V3M11 4V3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
 
     <div class="search-wrap">
@@ -56,6 +80,23 @@
       <div class="form-actions">
         <button class="btn-cancel" id="btnCancelLoose">Cancel</button>
         <button class="btn-save" id="btnSaveLoose">Save</button>
+      </div>
+    </div>
+
+    <!-- Inline add-grid form -->
+    <div class="inline-banner" id="addGridBanner">
+      <div class="form-field">
+        <label class="form-label">Grid Title</label>
+        <input type="text" class="form-input" id="gridTitle" placeholder="e.g. Sprint Goals" maxlength="80">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Grid</label>
+        <div id="gridEditorWrap"></div>
+      </div>
+      <button class="add-row-btn" id="btnAddGridRow">+ Add Row</button>
+      <div class="form-actions">
+        <button class="btn-cancel" id="btnCancelGrid">Cancel</button>
+        <button class="btn-save" id="btnSaveGrid">Save</button>
       </div>
     </div>
 

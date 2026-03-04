@@ -75,8 +75,10 @@ const state = {
     activeForm:      null,
     showAddFolder:   false,
     showAddLoose:    false,
+    showAddGrid:     false,
     showSaveTabs:    false,
     showLoadTabs:    false,
+    gridFormState:   null,
   },
 };
 

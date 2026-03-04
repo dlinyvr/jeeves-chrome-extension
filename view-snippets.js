@@ -13,6 +13,7 @@ const ICON_CHECK = `<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.5 3.5
 function renderSnippets() {
   _renderAddFolderBanner();
   _renderAddLooseBanner();
+  _renderAddGridBanner();
   _renderSaveTabsBanner();
   _renderLoadTabsBanner();
   _renderContent();
@@ -26,6 +27,63 @@ function _renderAddFolderBanner() {
 function _renderAddLooseBanner() {
   const banner = document.getElementById('addLooseBanner');
   banner.classList.toggle('visible', state.snippets.showAddLoose);
+}
+
+function _renderAddGridBanner() {
+  const banner = document.getElementById('addGridBanner');
+  banner.classList.toggle('visible', state.snippets.showAddGrid);
+  if (state.snippets.showAddGrid && state.snippets.gridFormState) {
+    _renderGridEditor(state.snippets.gridFormState.headers, state.snippets.gridFormState.rows);
+    setTimeout(() => document.getElementById('gridTitle')?.focus(), 30);
+  }
+}
+
+function _gridEditorHtml(headers, rows) {
+  let html = `<table class="grid-editor-table"><thead><tr>`;
+  headers.forEach((h, i) => {
+    html += `<th><input class="grid-header-input" data-col="${i}" value="${esc(h)}" placeholder="Header ${i + 1}"></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+  rows.forEach((row) => {
+    html += `<tr>`;
+    row.forEach((cell, ci) => {
+      html += `<td><input class="grid-cell-input" data-col="${ci}" value="${esc(cell)}"></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table>`;
+  return html;
+}
+
+function _renderGridEditor(headers, rows) {
+  const wrap = document.getElementById('gridEditorWrap');
+  if (wrap) wrap.innerHTML = _gridEditorHtml(headers, rows);
+}
+
+function _scrapeGridEditor() {
+  const headers = [...document.querySelectorAll('#gridEditorWrap .grid-header-input')].map((i) => i.value);
+  const rows = [...document.querySelectorAll('#gridEditorWrap tbody tr')].map((tr) =>
+    [...tr.querySelectorAll('.grid-cell-input')].map((i) => i.value)
+  );
+  return { headers, rows };
+}
+
+function _copyGridAsTSV(grid) {
+  const lines = [grid.headers.join('\t'), ...grid.rows.map((r) => r.join('\t'))];
+  return lines.join('\n');
+}
+
+function _gridTableHtml(s) {
+  let html = `<table class="grid-table-view"><thead><tr>`;
+  s.headers.forEach((h) => { html += `<th>${esc(h) || '&nbsp;'}</th>`; });
+  html += `</tr></thead><tbody>`;
+  s.rows.slice(0, 3).forEach((row) => {
+    html += `<tr>`;
+    row.forEach((cell) => { html += `<td>${esc(cell) || '&nbsp;'}</td>`; });
+    html += `</tr>`;
+  });
+  html += `</tbody></table>`;
+  return html;
 }
 
 function _renderContent() {
@@ -82,6 +140,7 @@ function _folderHtml(folder, idx, q) {
   const isOpen  = state.snippets.expandedFolders.has(folder.id) || !!q;
   const editingFolder  = state.snippets.activeForm?.type === 'editFolder'  && state.snippets.activeForm.folderId  === folder.id;
   const addingSnippet  = state.snippets.activeForm?.type === 'addSnippet'  && state.snippets.activeForm.folderId  === folder.id;
+  const addingGrid     = state.snippets.activeForm?.type === 'addGrid'     && state.snippets.activeForm.folderId  === folder.id;
 
   let html = `<div class="drop-indicator" data-drop-index="${idx}" data-drop-target="folder"></div>`;
   html += `<div class="folder${isOpen ? ' is-open' : ''}" data-folder-id="${folder.id}" draggable="true">`;
@@ -121,18 +180,26 @@ function _folderHtml(folder, idx, q) {
   if (folder.snippets.length) {
     html += `<div class="snippet-list">`;
     folder.snippets.forEach((s) => {
-      const editing = state.snippets.activeForm?.type === 'editSnippet' && state.snippets.activeForm.snippetId === s.id;
-      html += editing ? _editSnippetFormHtml(s, folder.id) : _snippetRowHtml(s, folder.id, q);
+      if (s.type === 'grid') {
+        const editing = state.snippets.activeForm?.type === 'editGrid' && state.snippets.activeForm.snippetId === s.id;
+        html += editing ? _editGridFormHtml(s, folder.id) : _gridSnippetHtml(s, folder.id, q);
+      } else {
+        const editing = state.snippets.activeForm?.type === 'editSnippet' && state.snippets.activeForm.snippetId === s.id;
+        html += editing ? _editSnippetFormHtml(s, folder.id) : _snippetRowHtml(s, folder.id, q);
+      }
     });
     html += `</div>`;
-  } else if (!addingSnippet) {
+  } else if (!addingSnippet && !addingGrid) {
     html += `<div class="snippet-empty">No snippets yet</div>`;
   }
 
   if (addingSnippet) {
     html += _addSnippetFormHtml(folder.id);
+  } else if (addingGrid) {
+    html += _addGridFormHtml(folder.id);
   } else if (!q) {
     html += `<button class="add-snippet-btn" data-action="startAddSnippet" data-folder-id="${folder.id}">+ Add snippet</button>`;
+    html += `<button class="add-snippet-btn" data-action="startAddGridInFolder" data-folder-id="${folder.id}">+ Add grid</button>`;
   }
 
   html += `</div></div>`; // .folder-body .folder
@@ -145,6 +212,7 @@ function _folderTrailingIndicator(total) {
 }
 
 function _looseSnippetHtml(s, idx, q) {
+  if (s.type === 'grid') return _looseGridHtml(s, idx, q);
   const preview = s.content.slice(0, 80).replace(/\n/g, ' ');
   const editing = state.snippets.activeForm?.type === 'editLoose' && state.snippets.activeForm.snippetId === s.id;
 
@@ -240,14 +308,113 @@ function _addSnippetFormHtml(folderId) {
     </div>`;
 }
 
+function _gridSnippetHtml(s, folderId, q) {
+  return `
+    <div class="snippet" data-snippet-id="${s.id}" data-folder-id="${folderId}">
+      <div class="snippet-text">
+        <div class="snippet-title">${highlight(s.title, q)}</div>
+        <div class="grid-preview">${_gridTableHtml(s)}</div>
+      </div>
+      <div class="snippet-actions">
+        <button class="copy-btn" data-action="copyGrid" data-folder-id="${folderId}" data-snippet-id="${s.id}" title="Copy as TSV">${ICON_COPY}</button>
+        <button class="icon-btn" data-action="startEditGrid" data-folder-id="${folderId}" data-snippet-id="${s.id}" title="Edit">✎</button>
+        <button class="icon-btn danger" data-action="deleteSnippet" data-folder-id="${folderId}" data-snippet-id="${s.id}" title="Delete">✕</button>
+      </div>
+    </div>`;
+}
+
+function _looseGridHtml(s, idx, q) {
+  const editing = state.snippets.activeForm?.type === 'editLooseGrid' && state.snippets.activeForm.snippetId === s.id;
+  let html = `<div class="drop-indicator" data-drop-index="${idx}" data-drop-target="loose"></div>`;
+  if (editing) {
+    html += `
+      <div class="loose-snippet" data-loose-id="${s.id}">
+        <div style="flex:1">
+          <div class="inline-form" style="margin:0">
+            <div class="form-field">
+              <label class="form-label">Grid Title</label>
+              <input class="form-input" id="gridTitle" value="${esc(s.title)}" maxlength="80">
+            </div>
+            <div class="form-field">
+              <label class="form-label">Grid</label>
+              <div id="gridEditorWrap">${_gridEditorHtml(state.snippets.gridFormState?.headers ?? s.headers, state.snippets.gridFormState?.rows ?? s.rows)}</div>
+            </div>
+            <button class="add-row-btn" data-action="addGridRow" data-loose-id="${s.id}">+ Add Row</button>
+            <div class="form-actions">
+              <button class="btn-cancel" data-action="cancelForm">Cancel</button>
+              <button class="btn-save" data-action="saveEditLooseGrid" data-loose-id="${s.id}">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    html += `
+      <div class="loose-snippet" data-loose-id="${s.id}" draggable="true">
+        <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
+        <div class="snippet-text">
+          <div class="snippet-title">${highlight(s.title, q)}</div>
+          <div class="grid-preview">${_gridTableHtml(s)}</div>
+        </div>
+        <div class="snippet-actions">
+          <button class="copy-btn" data-action="copyLooseGrid" data-loose-id="${s.id}" title="Copy as TSV">${ICON_COPY}</button>
+          <button class="icon-btn" data-action="startEditLooseGrid" data-loose-id="${s.id}" title="Edit">✎</button>
+          <button class="icon-btn danger" data-action="deleteLoose" data-loose-id="${s.id}" title="Delete">✕</button>
+        </div>
+      </div>`;
+  }
+  return html;
+}
+
+function _addGridFormHtml(folderId) {
+  const { headers, rows } = state.snippets.gridFormState;
+  return `
+    <div class="inline-form" style="margin:8px">
+      <div class="form-field">
+        <label class="form-label">Grid Title</label>
+        <input class="form-input" id="gridTitle" placeholder="e.g. Sprint Goals" maxlength="80">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Grid</label>
+        <div id="gridEditorWrap">${_gridEditorHtml(headers, rows)}</div>
+      </div>
+      <button class="add-row-btn" data-action="addGridRow" data-folder-id="${folderId}">+ Add Row</button>
+      <div class="form-actions">
+        <button class="btn-cancel" data-action="cancelForm">Cancel</button>
+        <button class="btn-save" data-action="saveNewGridInFolder" data-folder-id="${folderId}">Save</button>
+      </div>
+    </div>`;
+}
+
+function _editGridFormHtml(s, folderId) {
+  return `
+    <div class="inline-form">
+      <div class="form-field">
+        <label class="form-label">Grid Title</label>
+        <input class="form-input" id="gridTitle" value="${esc(s.title)}" maxlength="80">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Grid</label>
+        <div id="gridEditorWrap">${_gridEditorHtml(state.snippets.gridFormState?.headers ?? s.headers, state.snippets.gridFormState?.rows ?? s.rows)}</div>
+      </div>
+      <button class="add-row-btn" data-action="addGridRow" data-folder-id="${folderId}" data-snippet-id="${s.id}">+ Add Row</button>
+      <div class="form-actions">
+        <button class="btn-cancel" data-action="cancelForm">Cancel</button>
+        <button class="btn-save" data-action="saveEditGrid" data-folder-id="${folderId}" data-snippet-id="${s.id}">Save</button>
+      </div>
+    </div>`;
+}
+
 function _focusActiveForm() {
   const { activeForm } = state.snippets;
   if (!activeForm) return;
   const map = {
-    addSnippet:  'newSnippetTitle',
-    editSnippet: 'editSnippetTitle',
-    editFolder:  'editFolderInput',
-    editLoose:   'editLooseTitle',
+    addSnippet:    'newSnippetTitle',
+    editSnippet:   'editSnippetTitle',
+    editFolder:    'editFolderInput',
+    editLoose:     'editLooseTitle',
+    addGrid:       'gridTitle',
+    editGrid:      'gridTitle',
+    editLooseGrid: 'gridTitle',
   };
   setTimeout(() => {
     const el = document.getElementById(map[activeForm.type]);
@@ -264,9 +431,14 @@ function _filteredFolders(q) {
   if (!q) return sorted;
   return sorted.map((f) => {
     const nameMatch = f.name.toLowerCase().includes(q);
-    const snippets  = f.snippets.filter(
-      (s) => s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)
-    );
+    const snippets  = f.snippets.filter((s) => {
+      if (s.title.toLowerCase().includes(q)) return true;
+      if (s.type === 'grid') {
+        return s.headers.some((h) => h.toLowerCase().includes(q)) ||
+               s.rows.some((r) => r.some((c) => c.toLowerCase().includes(q)));
+      }
+      return (s.content || '').toLowerCase().includes(q);
+    });
     if (nameMatch || snippets.length) return { ...f, snippets: nameMatch ? f.snippets : snippets };
     return null;
   }).filter(Boolean);
@@ -275,9 +447,14 @@ function _filteredFolders(q) {
 function _filteredLoose(q) {
   const sorted = [...state.data.looseSnippets].sort((a, b) => a.title.localeCompare(b.title));
   if (!q) return sorted;
-  return sorted.filter(
-    (s) => s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)
-  );
+  return sorted.filter((s) => {
+    if (s.title.toLowerCase().includes(q)) return true;
+    if (s.type === 'grid') {
+      return s.headers.some((h) => h.toLowerCase().includes(q)) ||
+             s.rows.some((r) => r.some((c) => c.toLowerCase().includes(q)));
+    }
+    return (s.content || '').toLowerCase().includes(q);
+  });
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -431,7 +608,122 @@ async function handleSnippetAction(action, el) {
 
     case 'cancelForm': {
       state.snippets.activeForm = null;
+      state.snippets.gridFormState = null;
       _renderContent();
+      break;
+    }
+
+    case 'addGridRow': {
+      const { headers, rows } = _scrapeGridEditor();
+      rows.push(new Array(headers.length).fill(''));
+      if (state.snippets.gridFormState) {
+        state.snippets.gridFormState.headers = headers;
+        state.snippets.gridFormState.rows = rows;
+      }
+      _renderGridEditor(headers, rows);
+      break;
+    }
+
+    case 'copyGrid': {
+      const folder  = state.data.folders.find((f) => f.id === folderId);
+      const snippet = folder?.snippets.find((s) => s.id === snippetId);
+      if (!snippet) break;
+      await _copy(_copyGridAsTSV(snippet), el);
+      break;
+    }
+
+    case 'copyLooseGrid': {
+      const s = state.data.looseSnippets.find((x) => x.id === looseId);
+      if (!s) break;
+      await _copy(_copyGridAsTSV(s), el);
+      break;
+    }
+
+    case 'startAddGridInFolder': {
+      state.snippets.showAddGrid = false;
+      _renderAddGridBanner();
+      state.snippets.expandedFolders.add(folderId);
+      state.snippets.gridFormState = {
+        headers: ['', '', ''],
+        rows: [['','',''],['','',''],['','',''],['','',''],['','','']],
+      };
+      state.snippets.activeForm = { type: 'addGrid', folderId };
+      _renderContent();
+      break;
+    }
+
+    case 'saveNewGridInFolder': {
+      const title = document.getElementById('gridTitle')?.value.trim();
+      if (!title) { showToast('Enter a grid title'); return; }
+      const { headers, rows } = _scrapeGridEditor();
+      const folder = state.data.folders.find((f) => f.id === folderId);
+      if (folder) {
+        folder.snippets.push({ id: uid(), type: 'grid', title, headers, rows });
+        await saveData();
+        state.snippets.activeForm = null;
+        state.snippets.gridFormState = null;
+        _renderContent();
+        showToast('Grid saved');
+      }
+      break;
+    }
+
+    case 'startEditGrid': {
+      const folder  = state.data.folders.find((f) => f.id === folderId);
+      const snippet = folder?.snippets.find((s) => s.id === snippetId);
+      if (!snippet) break;
+      state.snippets.showAddGrid = false;
+      _renderAddGridBanner();
+      state.snippets.expandedFolders.add(folderId);
+      state.snippets.gridFormState = {
+        headers: [...snippet.headers],
+        rows: snippet.rows.map((r) => [...r]),
+      };
+      state.snippets.activeForm = { type: 'editGrid', folderId, snippetId };
+      _renderContent();
+      break;
+    }
+
+    case 'saveEditGrid': {
+      const title = document.getElementById('gridTitle')?.value.trim();
+      if (!title) { showToast('Enter a grid title'); return; }
+      const { headers, rows } = _scrapeGridEditor();
+      const folder  = state.data.folders.find((f) => f.id === folderId);
+      const snippet = folder?.snippets.find((s) => s.id === snippetId);
+      if (snippet) {
+        snippet.title = title; snippet.headers = headers; snippet.rows = rows;
+        state.snippets.gridFormState = { headers, rows };
+        await saveData();
+        showToast('Saved');
+      }
+      break;
+    }
+
+    case 'startEditLooseGrid': {
+      const s = state.data.looseSnippets.find((x) => x.id === looseId);
+      if (!s) break;
+      state.snippets.showAddGrid = false;
+      _renderAddGridBanner();
+      state.snippets.gridFormState = {
+        headers: [...s.headers],
+        rows: s.rows.map((r) => [...r]),
+      };
+      state.snippets.activeForm = { type: 'editLooseGrid', snippetId: looseId };
+      _renderContent();
+      break;
+    }
+
+    case 'saveEditLooseGrid': {
+      const title = document.getElementById('gridTitle')?.value.trim();
+      if (!title) { showToast('Enter a grid title'); return; }
+      const { headers, rows } = _scrapeGridEditor();
+      const s = state.data.looseSnippets.find((x) => x.id === looseId);
+      if (s) {
+        s.title = title; s.headers = headers; s.rows = rows;
+        state.snippets.gridFormState = { headers, rows };
+        await saveData();
+        showToast('Saved');
+      }
       break;
     }
   }
@@ -465,9 +757,16 @@ document.getElementById('snippetsContent').addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.snippets.activeForm) {
+  if (e.key !== 'Escape') return;
+  if (state.snippets.activeForm) {
     state.snippets.activeForm = null;
+    state.snippets.gridFormState = null;
     _renderContent();
+  }
+  if (state.snippets.showAddGrid) {
+    state.snippets.showAddGrid = false;
+    state.snippets.gridFormState = null;
+    _renderAddGridBanner();
   }
 });
 
@@ -477,9 +776,11 @@ document.getElementById('btnAddFolder').addEventListener('click', () => {
   state.snippets.showAddFolder = !state.snippets.showAddFolder;
   if (state.snippets.showAddFolder) {
     state.snippets.showAddLoose  = false;
+    state.snippets.showAddGrid   = false;
     state.snippets.showSaveTabs  = false;
     state.snippets.showLoadTabs  = false;
     _renderAddLooseBanner();
+    _renderAddGridBanner();
     _renderSaveTabsBanner();
     _renderLoadTabsBanner();
   }
@@ -494,9 +795,11 @@ document.getElementById('btnAddLoose').addEventListener('click', () => {
   state.snippets.showAddLoose = !state.snippets.showAddLoose;
   if (state.snippets.showAddLoose) {
     state.snippets.showAddFolder = false;
+    state.snippets.showAddGrid   = false;
     state.snippets.showSaveTabs  = false;
     state.snippets.showLoadTabs  = false;
     _renderAddFolderBanner();
+    _renderAddGridBanner();
     _renderSaveTabsBanner();
     _renderLoadTabsBanner();
   }
@@ -597,9 +900,11 @@ document.getElementById('btnSaveTabs').addEventListener('click', () => {
   if (state.snippets.showSaveTabs) {
     state.snippets.showAddFolder = false;
     state.snippets.showAddLoose  = false;
+    state.snippets.showAddGrid   = false;
     state.snippets.showLoadTabs  = false;
     _renderAddFolderBanner();
     _renderAddLooseBanner();
+    _renderAddGridBanner();
     _renderLoadTabsBanner();
   }
   _renderSaveTabsBanner();
@@ -656,11 +961,11 @@ function _tabSnippets() {
   const results = [];
   for (const folder of state.data.folders) {
     for (const s of folder.snippets) {
-      if (s.title.toLowerCase().startsWith('tabs')) results.push({ ...s, _source: folder.name });
+      if (s.type !== 'grid' && s.title.toLowerCase().startsWith('tabs')) results.push({ ...s, _source: folder.name });
     }
   }
   for (const s of state.data.looseSnippets) {
-    if (s.title.toLowerCase().startsWith('tabs')) results.push({ ...s, _source: 'Loose' });
+    if (s.type !== 'grid' && s.title.toLowerCase().startsWith('tabs')) results.push({ ...s, _source: 'Loose' });
   }
   return results;
 }
@@ -701,9 +1006,11 @@ document.getElementById('btnLoadTabs').addEventListener('click', () => {
   if (state.snippets.showLoadTabs) {
     state.snippets.showAddFolder = false;
     state.snippets.showAddLoose  = false;
+    state.snippets.showAddGrid   = false;
     state.snippets.showSaveTabs  = false;
     _renderAddFolderBanner();
     _renderAddLooseBanner();
+    _renderAddGridBanner();
     _renderSaveTabsBanner();
   }
   _renderLoadTabsBanner();
@@ -739,6 +1046,59 @@ document.getElementById('btnConfirmLoadTabs').addEventListener('click', async ()
   state.snippets.showLoadTabs = false;
   _renderLoadTabsBanner();
   showToast(`Opened ${urls.length} tab${urls.length === 1 ? '' : 's'}`);
+});
+
+// ── Add Grid Banner ───────────────────────────────────────────────────────────
+
+document.getElementById('btnAddGrid').addEventListener('click', () => {
+  state.snippets.showAddGrid = !state.snippets.showAddGrid;
+  if (state.snippets.showAddGrid) {
+    state.snippets.showAddFolder = false;
+    state.snippets.showAddLoose  = false;
+    state.snippets.showSaveTabs  = false;
+    state.snippets.showLoadTabs  = false;
+    state.snippets.activeForm    = null;
+    state.snippets.gridFormState = {
+      headers: ['', '', ''],
+      rows: [['','',''],['','',''],['','',''],['','',''],['','','']],
+    };
+    _renderAddFolderBanner();
+    _renderAddLooseBanner();
+    _renderSaveTabsBanner();
+    _renderLoadTabsBanner();
+    _renderContent();
+    document.getElementById('gridTitle').value = '';
+  }
+  _renderAddGridBanner();
+});
+
+document.getElementById('btnAddGridRow').addEventListener('click', () => {
+  const { headers, rows } = _scrapeGridEditor();
+  rows.push(new Array(headers.length).fill(''));
+  if (state.snippets.gridFormState) {
+    state.snippets.gridFormState.headers = headers;
+    state.snippets.gridFormState.rows = rows;
+  }
+  _renderGridEditor(headers, rows);
+});
+
+document.getElementById('btnCancelGrid').addEventListener('click', () => {
+  state.snippets.showAddGrid = false;
+  state.snippets.gridFormState = null;
+  _renderAddGridBanner();
+});
+
+document.getElementById('btnSaveGrid').addEventListener('click', async () => {
+  const title = document.getElementById('gridTitle').value.trim();
+  if (!title) { showToast('Enter a grid title'); return; }
+  const { headers, rows } = _scrapeGridEditor();
+  state.data.looseSnippets.push({ id: uid(), type: 'grid', title, headers, rows });
+  await saveData();
+  state.snippets.showAddGrid = false;
+  state.snippets.gridFormState = null;
+  _renderAddGridBanner();
+  _renderContent();
+  showToast('Grid saved');
 });
 
 // ── Drag & Drop ───────────────────────────────────────────────────────────────
@@ -875,7 +1235,11 @@ async function _onDropIntoFolder(e, folderEl) {
   const s        = state.data.looseSnippets.find((x) => x.id === _drag.id);
   if (!folder || !s) return;
 
-  folder.snippets.push({ id: s.id, title: s.title, content: s.content });
+  if (s.type === 'grid') {
+    folder.snippets.push({ id: s.id, type: 'grid', title: s.title, headers: s.headers, rows: s.rows });
+  } else {
+    folder.snippets.push({ id: s.id, title: s.title, content: s.content });
+  }
   state.data.looseSnippets = state.data.looseSnippets.filter((x) => x.id !== s.id);
   state.snippets.expandedFolders.add(folderId);
   await saveData();
