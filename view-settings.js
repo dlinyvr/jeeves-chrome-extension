@@ -13,6 +13,7 @@ function renderSettings() {
   _updateOpenaiStatus();
   _updateLinearStatus();
   _renderLinearTeamSelect();
+  _renderPromptTemplates();
 }
 
 function _updateOpenaiStatus() {
@@ -280,6 +281,122 @@ document.getElementById('importFileInput').addEventListener('change', async (e) 
   } catch (err) {
     showToast(`Import failed: ${err.message}`);
   }
+});
+
+// ── Prompt Templates ──────────────────────────────────────────────────────────
+
+function _renderPromptTemplates() {
+  const prompts = state.data.chatPrompts ?? [];
+  const list    = document.getElementById('promptTemplatesList');
+
+  if (!prompts.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-faint);margin-bottom:10px">No prompts yet.</div>';
+    return;
+  }
+
+  list.innerHTML = prompts.map((p, i) => `
+    <div class="prompt-template-row" data-id="${esc(p.id)}">
+      <div class="prompt-template-info">
+        <span class="prompt-template-title">${esc(p.title)}</span>
+        <span class="prompt-template-model">${esc(p.model)}</span>
+      </div>
+      <div class="prompt-template-actions">
+        <button class="btn-test prompt-edit-btn" data-id="${esc(p.id)}">Edit</button>
+        <button class="btn-test prompt-delete-btn" data-id="${esc(p.id)}" style="color:var(--danger)">Delete</button>
+      </div>
+    </div>
+    <div class="prompt-edit-form" id="promptEditForm-${esc(p.id)}" style="display:none">
+      <div class="form-field">
+        <label class="form-label">Title</label>
+        <input type="text" class="form-input prompt-edit-title" data-id="${esc(p.id)}" value="${esc(p.title)}" maxlength="60">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Prompt</label>
+        <textarea class="form-textarea prompt-edit-content" data-id="${esc(p.id)}" rows="3">${esc(p.content)}</textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label">Model</label>
+        <select class="form-select prompt-edit-model" data-id="${esc(p.id)}">
+          <option value="gpt-4o" ${p.model === 'gpt-4o' ? 'selected' : ''}>⚡ Balanced — gpt-4o</option>
+          <option value="gpt-4o-mini" ${p.model === 'gpt-4o-mini' ? 'selected' : ''}>💰 Budget — gpt-4o-mini</option>
+          <option value="o3-mini" ${p.model === 'o3-mini' ? 'selected' : ''}>🧠 Deep Think — o3-mini</option>
+          <option value="gpt-4-turbo" ${p.model === 'gpt-4-turbo' ? 'selected' : ''}>gpt-4-turbo</option>
+          <option value="o1-mini" ${p.model === 'o1-mini' ? 'selected' : ''}>o1-mini</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-cancel prompt-edit-cancel-btn" data-id="${esc(p.id)}">Cancel</button>
+        <button class="btn-save prompt-edit-save-btn" data-id="${esc(p.id)}">Save</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Edit toggle
+  list.querySelectorAll('.prompt-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById(`promptEditForm-${btn.dataset.id}`);
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      btn.textContent = form.style.display === 'none' ? 'Edit' : 'Close';
+    });
+  });
+
+  // Edit cancel
+  list.querySelectorAll('.prompt-edit-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById(`promptEditForm-${btn.dataset.id}`);
+      form.style.display = 'none';
+      const editBtn = list.querySelector(`.prompt-edit-btn[data-id="${btn.dataset.id}"]`);
+      if (editBtn) editBtn.textContent = 'Edit';
+    });
+  });
+
+  // Edit save
+  list.querySelectorAll('.prompt-edit-save-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id      = btn.dataset.id;
+      const prompt  = state.data.chatPrompts.find(p => p.id === id);
+      if (!prompt) return;
+      const title   = list.querySelector(`.prompt-edit-title[data-id="${id}"]`).value.trim();
+      const content = list.querySelector(`.prompt-edit-content[data-id="${id}"]`).value.trim();
+      const model   = list.querySelector(`.prompt-edit-model[data-id="${id}"]`).value;
+      if (!title) { showToast('Title is required'); return; }
+      prompt.title   = title;
+      prompt.content = content;
+      prompt.model   = model;
+      await saveData();
+      showToast('Prompt saved');
+      _renderPromptTemplates();
+    });
+  });
+
+  // Delete
+  list.querySelectorAll('.prompt-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      state.data.chatPrompts = state.data.chatPrompts.filter(p => p.id !== btn.dataset.id);
+      await saveData();
+      showToast('Prompt deleted');
+      _renderPromptTemplates();
+    });
+  });
+}
+
+document.getElementById('btnAddPrompt').addEventListener('click', async () => {
+  const title   = document.getElementById('promptAddTitle').value.trim();
+  const content = document.getElementById('promptAddContent').value.trim();
+  const model   = document.getElementById('promptAddModel').value;
+
+  if (!title) { showToast('Title is required'); return; }
+
+  if (!state.data.chatPrompts) state.data.chatPrompts = [];
+  state.data.chatPrompts.push({ id: uid(), title, content, model });
+  await saveData();
+  showToast('Prompt added');
+
+  document.getElementById('promptAddTitle').value   = '';
+  document.getElementById('promptAddContent').value = '';
+  document.getElementById('promptAddModel').value   = 'gpt-4o';
+
+  _renderPromptTemplates();
 });
 
 // Expose for linear view

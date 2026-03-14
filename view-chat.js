@@ -34,6 +34,8 @@ function renderChat() {
     _rebuildMessages();
   }
 
+  _populatePromptSelect();
+
   // Restore draft input
   const input = document.getElementById('chatInput');
   if (input && !input.value && ui.chatDraft) {
@@ -41,6 +43,13 @@ function renderChat() {
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
   }
+}
+
+function _populatePromptSelect() {
+  const sel = document.getElementById('chatPromptSelect');
+  const prompts = state.data.chatPrompts ?? [];
+  sel.innerHTML = '<option value="">Prompts\u2026</option>' +
+    prompts.map(p => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('');
 }
 
 function _rebuildMessages() {
@@ -66,6 +75,35 @@ document.getElementById('chatWebToggle').addEventListener('click', () => {
 document.getElementById('chatModelSelect').addEventListener('change', function () {
   ui.chatModel = this.value;
   saveUiState();
+});
+
+// ── Prompt select ─────────────────────────────────────────────────────────────
+
+document.getElementById('chatPromptSelect').addEventListener('change', function () {
+  if (!this.value) return;
+  const prompt = (state.data.chatPrompts ?? []).find(p => p.id === this.value);
+  if (!prompt) return;
+
+  // Fill textarea
+  const input = document.getElementById('chatInput');
+  input.value = prompt.content;
+  input.dispatchEvent(new Event('input')); // trigger auto-resize
+
+  // Switch model if the prompt has one
+  if (prompt.model) {
+    const sel = document.getElementById('chatModelSelect');
+    const opt = sel.querySelector(`option[value="${CSS.escape(prompt.model)}"]`);
+    if (opt) {
+      sel.value = prompt.model;
+      chatState.model = prompt.model;
+      ui.chatModel = prompt.model;
+      saveUiState();
+    }
+  }
+
+  // Reset dropdown back to placeholder
+  this.value = '';
+  input.focus();
 });
 
 // ── Send message ──────────────────────────────────────────────────────────────

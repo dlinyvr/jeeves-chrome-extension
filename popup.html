@@ -303,6 +303,9 @@
 
       <!-- Model bar -->
       <div class="chat-model-bar">
+        <select class="chat-prompt-select" id="chatPromptSelect">
+          <option value="">Prompts…</option>
+        </select>
         <select class="chat-model-select" id="chatModelSelect">
           <optgroup label="Presets">
             <option value="o3-mini">🧠 Deep Think — o3-mini</option>
@@ -495,6 +498,69 @@
     </div>
   </div>
 
+  <!-- ══════════════ TRANSCRIBE TAB ══════════════ -->
+  <div id="tab-transcribe" class="tab-panel">
+    <div class="transcribe-body">
+
+      <!-- Source selector -->
+      <div class="transcribe-source-row">
+        <button class="transcribe-source-btn active" data-source="youtube">
+          <svg viewBox="0 0 16 16" fill="none" width="12" height="12"><rect x="2" y="3.5" width="12" height="9" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 6.5l4 2-4 2V6.5z" fill="currentColor"/></svg>
+          YouTube
+        </button>
+        <button class="transcribe-source-btn" data-source="audio">
+          <svg viewBox="0 0 16 16" fill="none" width="12" height="12"><circle cx="8" cy="6" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 6a3 3 0 006 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 9v2M6 13h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Audio File
+        </button>
+      </div>
+
+      <!-- YouTube source -->
+      <div id="transcribe-youtube-section">
+        <div class="form-field">
+          <label class="form-label">YouTube URL</label>
+          <input type="text" class="form-input" id="transcribeYoutubeUrl"
+            placeholder="https://youtube.com/watch?v=…" spellcheck="false" autocomplete="off">
+        </div>
+        <button class="btn-primary full" id="btnTranscribeYoutube">Fetch Transcript</button>
+      </div>
+
+      <!-- Audio source -->
+      <div id="transcribe-audio-section" style="display:none">
+        <div class="form-field">
+          <label class="form-label">Audio / Video File</label>
+          <div class="transcribe-file-drop" id="transcribeFileDrop">
+            <svg viewBox="0 0 20 20" fill="none" width="20" height="20"><path d="M10 13V5M7 8l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span id="transcribeFileName">Drop file or click to browse</span>
+          </div>
+          <input type="file" id="transcribeAudioInput"
+            accept="audio/*,video/mp4,video/webm,.mp3,.mp4,.m4a,.wav,.webm,.ogg"
+            style="display:none">
+        </div>
+        <div id="transcribeNoKeyMsg" class="transcribe-no-key" style="display:none">
+          <span>OpenAI API key required — add it in</span>
+          <button class="transcribe-settings-link" id="transcribeGoSettings">Settings</button>
+        </div>
+        <button class="btn-primary full" id="btnTranscribeAudio">Transcribe</button>
+      </div>
+
+      <!-- Status / error -->
+      <div class="transcribe-status" id="transcribeStatus" style="display:none"></div>
+
+      <!-- Output -->
+      <div id="transcribeOutputSection" style="display:none">
+        <div class="transcribe-output-header">
+          <span class="form-label" style="margin:0">Transcript</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-test" id="btnTranscribeCopy">Copy</button>
+            <button class="btn-test" id="btnTranscribeSnippet">Save snippet</button>
+          </div>
+        </div>
+        <textarea class="form-textarea transcribe-output" id="transcribeOutput" rows="10" readonly></textarea>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ══════════════ TASKS TAB ══════════════ -->
   <div id="tab-tasks" class="tab-panel">
     <div class="tasks-body">
@@ -619,6 +685,40 @@
 
       <div class="settings-divider"></div>
 
+      <section class="settings-section" id="promptTemplatesSection">
+        <div class="settings-section-header">
+          <span class="settings-icon">✦</span>
+          <div>
+            <div class="settings-section-title">Prompt Templates</div>
+            <div class="settings-section-sub">Saved prompts for AI Chat</div>
+          </div>
+        </div>
+        <div id="promptTemplatesList"></div>
+        <div class="prompt-add-form" id="promptAddForm">
+          <div class="form-field">
+            <label class="form-label">Title</label>
+            <input type="text" class="form-input" id="promptAddTitle" placeholder="e.g. Summarize" maxlength="60">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Prompt</label>
+            <textarea class="form-textarea" id="promptAddContent" placeholder="Enter prompt text…" rows="3"></textarea>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Model</label>
+            <select class="form-select" id="promptAddModel">
+              <option value="gpt-4o">⚡ Balanced — gpt-4o</option>
+              <option value="gpt-4o-mini">💰 Budget — gpt-4o-mini</option>
+              <option value="o3-mini">🧠 Deep Think — o3-mini</option>
+              <option value="gpt-4-turbo">gpt-4-turbo</option>
+              <option value="o1-mini">o1-mini</option>
+            </select>
+          </div>
+          <button class="btn-save" id="btnAddPrompt">Add Prompt</button>
+        </div>
+      </section>
+
+      <div class="settings-divider"></div>
+
     </div>
 
     <div class="settings-save-row">
@@ -636,6 +736,7 @@
 <script src="view-files.js"></script>
 <script src="view-chat.js"></script>
 <script src="view-ports.js"></script>
+<script src="view-transcribe.js"></script>
 <script src="view-todo.js"></script>
 <script src="view-timer.js"></script>
 </body>

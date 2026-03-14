@@ -40,6 +40,12 @@ const AVAILABLE_TASKS = [
     description: 'Simple task list',
   },
   {
+    id: 'transcribe',
+    label: 'Transcribe',
+    icon: `<svg viewBox="0 0 16 16" fill="none" width="13" height="13" style="flex-shrink:0"><circle cx="8" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M5 6a3 3 0 006 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8 9v2M6 13h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    description: 'Transcribe YouTube videos or audio',
+  },
+  {
     id: 'timer',
     label: 'Timer',
     icon: `<svg viewBox="0 0 16 16" fill="none" width="13" height="13" style="flex-shrink:0"><circle cx="8" cy="9" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 6.5V9l1.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 2h4M8 2v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
@@ -66,7 +72,8 @@ const state = {
       chatModel:      'gpt-4o',
       portManagerUrl: 'http://localhost:3007',
     },
-    linearCache: { teams: [] },
+    linearCache:  { teams: [] },
+    chatPrompts:  [],
   },
   activeTab: 'snippets',
   snippets: {
@@ -136,6 +143,7 @@ function _mergeData(saved) {
   state.data.worldClocks   = saved.worldClocks   ?? [];
   state.data.settings      = { ...state.data.settings, ...(saved.settings ?? {}) };
   state.data.linearCache   = { teams: saved.linearCache?.teams ?? [] };
+  state.data.chatPrompts   = saved.chatPrompts ?? [];
 }
 
 async function saveData() {
@@ -147,6 +155,7 @@ async function saveData() {
       worldClocks:   state.data.worldClocks,
       settings:      state.data.settings,
       linearCache:   state.data.linearCache,
+      chatPrompts:   state.data.chatPrompts,
     };
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.set({ [STORAGE_KEY]: payload }, () => {
@@ -281,8 +290,9 @@ function switchTab(tab) {
   if (tab === 'linear')   renderLinear();
   if (tab === 'files')    renderFiles();
   if (tab === 'chat')     renderChat();
-  if (tab === 'tasks')    renderTasks();
-  if (tab === 'ports')    renderPorts();
+  if (tab === 'tasks')      renderTasks();
+  if (tab === 'ports')      renderPorts();
+  if (tab === 'transcribe') renderTranscribe();
   if (tab === 'todo')     renderTodo();
   if (tab === 'timer')    renderTimer();
 }
